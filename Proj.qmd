@@ -1,0 +1,606 @@
+---
+title: "Projekt"
+author: "Anastasiia Ivashchenko"
+language: Polski.yml
+format: 
+  html:
+    warning: false
+    message: false
+    echo: false
+    self-contained: true
+embed-resources: true #wykresy i zdjęcia
+editor: visual
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+library(readxl)
+library(reshape2)
+library(tidyverse)
+library(knitr)
+library(tidyr)
+library(rvest)
+library(flextable)
+library(dplyr)
+library(dbplyr)
+library(kableExtra)
+library(formattable)
+library(rstatix)
+library(ggplot2)
+library(RColorBrewer)
+library(plotly)
+```
+
+Nasza analiza skupia się na zbiorze danych, który stanowi źródło informacji o uczniach klas maturalnych z dwóch portugalskich szkół. W ramach tego projektu badawczego, uwagę zwracamy na uczniów, którzy uczęszczają do klas matematycznych i humanistycznych.
+
+Dane, które poddajemy szczegółowej analizie, zostały zebrane w etyczny sposób. Każdy uczeń uczestniczący w badaniu wypełnił obowiązkową ankietę, która była w pełni anonimowa.
+
+Zbiór danych zawiera różnorodne informacje, które mogą pomóc zrozumieć wiele aspektów edukacji i rozwoju młodzieży. Analizujemy takie rzeczy jak wyniki w nauce, relacje w rodzinie, zachowanie w grupie i opinie o szkole. Dzięki temu możemy lepiej zrozumieć, jak edukacja wpływa na młodych ludzi oraz jakie czynniki mogą wpływać na ich sukcesy i trudności w szkole.
+
+```{r}
+df <- read_excel("student_razem.xlsx")
+
+df %>% 
+  head(10) %>% 
+  arrange(age) %>% 
+  flextable() %>% 
+  bold(j = "age") %>%
+  bold(part = 'header') %>%
+  color(color = "#58174D", part = "header") %>% 
+  set_table_properties(layout = "autofit") 
+```
+
+W zbiorze danych są takie informacje:
+
+***school*** - szkoła ucznia (binary: 'GP' - Gabriel Pereira lub 'MS' - Mousinho da Silveira)
+
+***cours*** - Przedmiot rozszerzony
+
+***sex*** - płeć ucznia (binary: 'F' - kobieta lub 'M' - mężczyzna)
+
+***age*** - wiek ucznia (numeric: od 15 do 22 lat)
+
+***address*** - typ adresu domowego ucznia (binary: 'U' - miejski (urban) lub 'R' - wiejski (rural))
+
+***famsize*** - wielkość rodziny (binary: 'LE3' - równa lub mniejsza niż 3 lub 'GT3' - większa niż 3)
+
+***Pstatus*** - status współżycia rodziców (binary: 'T' - mieszkają razem (together) lub 'A' - osobno (apart))
+
+***Medu*** - wykształcenie matki (numeric: 0 - brak, 1 - podstawowe (4 klasy), 2 -- od 5 do 9 klasy, 3 -- średnie lub 4 -- wyższe)
+
+***Fedu*** - wykształcenie ojca (numeric: 0 - brak, 1 - podstawowe (4 klasy), 2 -- od 5 do 9 klasy, 3 -- średnie lub 4 -- wyższe)
+
+***Mjob*** - zawód matki (nominal: 'teacher', 'health' care related, civil 'services' (e.g. administrative or police), 'at_home' lub 'other')
+
+***Fjob*** - zawód ojca (nominal: 'teacher', 'health' care related, civil 'services' (e.g. administrative or police), 'at_home' lub 'other')
+
+***reason*** - powód wyboru tej szkoły nominal: close to 'home', school 'reputation', 'course' preference lub 'other')
+
+***guardian*** - opiekun ucznia (nominal: 'mother', 'father' lub 'other')
+
+***traveltime*** - czas dojazdu z domu do szkoły (numeric: 1 - \<15 min., 2 - 15 do 30 min., 3 - 30 min. do 1 godziny, lub 4 - \>1 godzina)
+
+***studytime*** - tygodniowy czas nauki (numeric: 1 - \<2 godziny, 2 - 2 do 5 godzin, 3 - 5 do 10 godzin, lub 4 - \>10 godzin)
+
+***failures*** - liczba niezdanych klas w przeszłości (numeric: n jeśli 1\<=n\<3, w przeciwnym razie 4)
+
+***schoolsup*** - dodatkowe wsparcie edukacyjne (binary: tak lub nie)
+
+***famsup*** - wsparcie edukacyjne rodziny (binary: tak lub nie)
+
+***paid*** - dodatkowe płatne zajęcia w ramach przedmiotu kursu (Matematyka lub Portugalski) (binary: tak lub nie)
+
+***activities*** - zajęcia pozalekcyjne (binary: tak lub nie)
+
+***nursery*** - uczęszczanie do przedszkola (binary: tak lub nie)
+
+***higher*** - chęć podjęcia wyższego wykształcenia (binary: tak lub nie)
+
+***internet*** - dostęp do Internetu w domu (binary: tak lub nie)
+
+***romantic*** - w związku romantycznym (binary: tak lub nie)
+
+***famrel*** - jakość relacji rodzinnych (numeric: od 1 - bardzo złe do 5 - doskonałe)
+
+***freetime*** - czas wolny po szkole (numeric: od 1 - bardzo mało do 5 - bardzo dużo)
+
+***goout*** - wychodzenie z przyjaciółmi (numeric: od 1 - bardzo rzadko do 5 - bardzo często)
+
+***Dalc*** - konsumpcja alkoholu w dni powszednie (numeric: od 1 - bardzo niska do 5 - bardzo wysoka)
+
+***Walc*** - konsumpcja alkoholu w weekendy (numeric: od 1 - bardzo niska do 5 - bardzo wysoka)
+
+***health*** - aktualny stan zdrowia (numeric: od 1 - bardzo zły do 5 - bardzo dobry)
+
+***absences*** - liczba nieobecności w szkole (numeric: od 0 do 75)
+
+Te oceny są związane z przedmiotem kursu, Matematyką lub Portugalskim:
+
+***G1*** - ocena za pierwszy okres (numeric: od 0 do 20)
+
+***G2*** - ocena za drugi okres (numeric: od 0 do 20)
+
+***G3*** - ocena końcowa (numeric: od 0 do 20, cel wyjściowy)
+
+### Analiza brakujących danych
+
+Została przeprowadzona szczegółowa analiza w poszukiwaniu brakujących wartości w dostarczonym zbiorze danych. Na podstawie przeprowadzonej inspekcji stwierdzono, że w zbiorze nie występują braki danych.
+
+```{r}
+braki_danych <- is.na(df)
+indeksy_true <- which(braki_danych == TRUE, arr.ind = TRUE)
+```
+
+### Analiza powtarzających się rekordów
+
+Dokonano analizy zbioru pod kątem obecności powtarzających się wierszy. Po przeprowadzeniu tej analizy stwierdzono, że zbiór nie zawiera duplikatów i każdy rekord jest unikalny.
+
+```{r}
+powtarzajace_sie_wiersze <- duplicated(df)
+liczba_powtorzen <- table(powtarzajace_sie_wiersze)
+```
+
+### Podstawowe statystyki dla kolumn numerycznych
+
+```{r}
+numerical_columns <- select_if(df, is.numeric)
+tabelka <- numerical_columns
+st_op <- round(apply(tabelka,2,summary),2)
+st_op <- as.data.frame(st_op)
+
+st_op <- tibble::rownames_to_column(st_op, var = "Statistic")
+
+st_op %>%
+  flextable() %>% 
+  bold(part = 'header') %>%
+  bold(j = "Statistic") %>%
+  color(color = "#58174D", part = "header") %>% 
+  set_table_properties(layout = "autofit")
+```
+
+#### Oto kilka interesujących obserwacji, które można wywnioskować z podanych statystyk:
+
+-   **Rozkład wieku**: Większość uczniów znajduje się w typowym wieku dla uczniów szkoły średniej (15-18 lat), ale istnieje też niewielka liczba uczniów, którzy są starsi (aż do 22 lat). To może wskazywać na różnorodność grupy uczniów pod względem doświadczenia życiowego lub może sugerować, że niektórzy uczniowie dołączyli do szkoły później lub powtarzali klasy.
+
+-   **Wykształcenie rodziców**: Średnie wartości wykształcenia zarówno dla matki, jak i ojca wskazują, że większość rodziców uczniów posiada co najmniej wykształcenie średnie. To może wskazywać na pewien poziom zaangażowania rodziców w edukację ich dzieci.
+
+-   **Czas dojazdu do szkoły**: Większość uczniów mieszka stosunkowo blisko szkoły, ponieważ mediana czasu dojazdu wynosi mniej niż 15 minut. Może to sugerować, że szkoła jest dobrze zlokalizowana w stosunku do miejsca zamieszkania uczniów.
+
+-   **Niepowodzenia szkolne**: Średnia liczba niezdanych przedmiotów jest stosunkowo niska, co wskazuje na to, że większość uczniów radzi sobie dobrze w szkole. Niemniej jednak, warto zwrócić uwagę na tych uczniów, którzy mają większą liczbę niepowodzeń, aby zrozumieć ich trudności i zapewnić im wsparcie.
+
+-   **Jakość relacji rodzinnych:** Średnia ocena jakości relacji rodzinnych jest stosunkowo wysoka, co może wskazywać na pozytywne środowisko domowe dla większości uczniów.
+
+-   **Spożywanie alkoholu**: Chociaż spożycie alkoholu w dni robocze (Dalc) jest generalnie niskie, warto zauważyć, że spożycie alkoholu w weekendy (Walc) jest nieco wyższe. Może to być ważnym obszarem do dalszych badań, zwłaszcza jeśli chodzi o potencjalne wpływy na zdrowie i osiągnięcia uczniów.
+
+-   **Nieobecności**: Chociaż mediana nieobecności wynosi tylko 2 dni, maksymalna liczba nieobecności wynosi aż 75 dni. Warto zbadać przyczyny tak długich nieobecności oraz ich potencjalny wpływ na wyniki uczniów.
+
+-   **Oceny**: Oceny uczniów są stosunkowo stałe przez trzy okresy (G1, G2, G3), co wskazuje na to, że ich osiągnięcia są konsekwentne w ciągu roku szkolnego.
+
+### Wykresy dla kolumn numerycznych
+
+```{r}
+numerical_columns <- select_if(df, is.numeric)
+
+colors <- scales::hue_pal()(length(names(numerical_columns)))
+
+
+par(mfrow=c(5, 4), mar=c(2, 2, 0.5, 0.7))
+
+for(i in 1:length(names(numerical_columns))) {
+  column_name <- names(numerical_columns)[i]
+  color <- colors[i]
+  hist(numerical_columns[[column_name]], breaks=20, col=color, main=paste("Histogram of", column_name), xlab=column_name, ylab="Frequency")
+}
+```
+
+```{r}
+numerical_columns <- df %>% select(where(is.numeric))
+
+colors <- scales::hue_pal()(length(names(numerical_columns)))
+
+plots <- lapply(1:length(names(numerical_columns)), function(i) {
+  ggplot(numerical_columns, aes_string(y = names(numerical_columns)[i])) + 
+    geom_boxplot(fill = colors[i]) + 
+    labs(title = paste('Boxplot of', names(numerical_columns)[i]),
+         x = NULL, y = names(numerical_columns)[i])
+})
+
+library(gridExtra)
+grid.arrange(grobs = plots, ncol = 4)
+
+```
+
+#### Oto kilka interesujących obserwacji, które można wywnioskować z podanych wykresów:
+
+-   **Rozkład wieku**: Większość uczniów jest w wieku 15-18 lat, z niewielką liczbą uczniów w wieku 19-22 lat.
+
+-   **Wykształcenie rodziców**: Wydaje się, że wiele matek ma wyższe wykształcenie w porównaniu z ojcami.
+
+-   **Czas dojazdu**: Większość uczniów ma krótki czas dojazdu do szkoły, co jest zgodne z wcześniejszymi obserwacjami.
+
+-   **Czas nauki**: Większość uczniów poświęca średnią ilość czasu na naukę.
+
+-   **Niepowodzenia**: Jak wcześniej zauważono, większość uczniów ma niewiele lub wcale niepowodzeń.
+
+-   **Jakość relacji rodzinnych, czas wolny, wychodzenie z przyjaciółmi, spożycie alkoholu, stan zdrowia**: Histogramy tych zmiennych prezentują się w sposób oczekiwany na podstawie wcześniejszej analizy.
+
+-   **Nieobecności**: Większość uczniów ma niewiele nieobecności, ale istnieje pewna liczba uczniów z dużą liczbą nieobecności.
+
+-   **Oceny** (G1, G2, G3): Rozkład ocen jest stosunkowo normalny z nieco lepszymi wynikami w trzecim okresie.
+
+### Macierz korelacji dla kolumn numerycznych
+
+```{r}
+correlation_matrix <- cor(df[, sapply(df, is.numeric)], use="complete.obs")
+
+melted_correlation_matrix <- melt(correlation_matrix)
+
+ggplot(data = melted_correlation_matrix, aes(x=Var1, y=Var2)) +
+  geom_tile(aes(fill = value), colour = "white") +
+  geom_text(aes(label=sprintf("%.2f", value)), vjust=0.5, size=2.4) +
+  scale_fill_gradient2(low = "#1FFF00", high = "#9D69FF", mid = "#C3EBF0", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  coord_fixed() +
+  ggtitle("Correlation Heatmap")
+
+```
+
+#### Oto kilka interesujących obserwacji, które można wywnioskować z podanej macierzy korelacji:
+
+-   Możemy zauważyć, że zmienne **Fedu** (wykształcenie ojca)i **Medu** (wykształcenie matki) wykazują silną pozytywną korelację.
+
+Z tego można wywnioskowć, że ludzie o podobnym poziomie wykształcenia mogą pochodzić z podobnych środowisk kulturowych lub społecznych, co może wpływać na ich wybory życiowe, w tym wybór partnera. W rodzinach, gdzie matka ma wysoki poziom wykształcenia, jest większa szansa, że ojciec również będzie miał wysoki poziom wykształcenia, i odwrotnie. Może to sugerować, że ludzie z podobnym poziomem wykształcenia mają tendencję do łączenia się w pary.
+
+-   Możemy zauważyć, że zmienne **Walc** (spożycie alkoholu w weekendy) i **Dalc** (spożycie alkoholu w dni robocze) wykazują silną pozytywną korelację.
+
+Z tego można wywnioskowć, że istnieje grupa uczniów, którzy regularnie spożywają alkohol zarówno w dni robocze, jak i w weekendy. Ci uczniowie mogą być bardziej narażeni na ryzyko nadużywania alkoholu lub rozwijania niezdrowych nawyków związanych z alkoholem.
+
+-   Możemy zauważyć że zmienne z ocenami (**G1, G2, G3**) wykazują silną pozytywną korelację.
+
+Z tego można wywnioskowć, że istnieje pewną stabilność w osiągnięciach uczniów. Jeśli uczniowie uzyskują wysokie oceny w jednym okresie, istnieje duże prawdopodobieństwo, że będą kontynuować te osiągnięcia w kolejnych okresach.
+
+-   Możemy zauważyć, że zmienne **goout** (spożycie alkoholu w weekendy) i **Walc** (wychodzenie z przyjaciółmi) wykazują stosunkowo silną pozytywną korelację.
+
+Z tego można wywnioskowć, że uczniowie, którzy częściej wychodzą z przyjaciółmi, mają tendencję do większego spożycia alkoholu w weekendy. Może to sugerować, że spotkania towarzyskie lub wyjścia z przyjaciółmi często wiążą się z konsumpcją alkoholu.
+
+-   Możemy zauważyć, że zmienne **goout** (wychodzenie z przyjaciółmi) i **freetime** (czas wolny po szkole) wykazują pozytywną korelację.
+
+Z tego można wywnioskowć, że uczniowie, którzy mają więcej wolnego czasu po szkole, prawdopodobnie spędzają więcej czasu wychodząc z przyjaciółmi. Może to być intuicyjne, ponieważ uczniowie z większą ilością wolnego czasu mają więcej okazji do spotkań towarzyskich. Może to również sugerować, że dla wielu uczniów spędzanie czasu z przyjaciółmi jest ważnym sposobem wykorzystywania wolnego czasu. Wychodzenie z przyjaciółmi może być ważne dla ich życia społecznego i dobrostanu emocjonalnego.
+
+-   Możemy zauważyć że zmienne z ocenami (**G1, G2, G3**) i **failures** (liczbą niepowodzeń) wykazują ujemną korelację.
+
+Z tego można wywnioskowć, że negatywny wpływ niepowodzeń na oceny ucznia może się kumulować z czasem. Jeśli uczniowie nie otrzymają odpowiedniego wsparcia po pierwszych niepowodzeniach, mogą mieć trudności w kolejnych okresach, co może prowadzić do kolejnych niskich ocen.
+
+```{r}
+df1 <- df
+
+
+df1$school <- as.numeric(factor(df$school, levels = c('GP', 'MS'), labels = c(1, 2)))
+df1$Cours <- as.numeric(factor(df$Cours, levels = c('Portugese', 'Mat'), labels = c(1, 2)))
+df1$sex <- as.numeric(factor(df$sex, levels = c('F', 'M'), labels = c(1, 2)))
+df1$address <- as.numeric(factor(df$address, levels = c('U', 'R'), labels = c(1, 2)))
+df1$famsize <- as.numeric(factor(df$famsize, levels = c('GT3', 'LE3'), labels = c(1, 2)))
+df1$Pstatus <- as.numeric(factor(df$Pstatus, levels = c('A', 'T'), labels = c(1, 2)))
+df1$Mjob <- as.numeric(factor(df$Mjob, levels = c("at_home", "health", "teacher", "services", "other"), labels = c(1, 2, 3, 4, 5)))
+df1$Fjob <- as.numeric(factor(df$Fjob, levels = c("at_home", "health", "teacher", "services", "other"), labels = c(1, 2, 3, 4, 5)))
+
+df1$reason <- as.numeric(factor(df$reason, levels = c('course', 'home', 'reputation', 'other'), labels = c(1, 2, 3, 4)))
+df1$guardian <- as.numeric(factor(df$guardian, levels = c('mother', 'father', 'other'), labels = c(1, 2, 3)))
+df1$schoolsup <- as.numeric(factor(df$schoolsup, levels = c('yes', 'no'), labels = c(1, 2)))
+df1$famsup <- as.numeric(factor(df$famsup, levels = c('yes', 'no'), labels = c(1, 2)))
+df1$paid <- as.numeric(factor(df$paid, levels = c('yes', 'no'), labels = c(1, 2)))
+df1$activities <- as.numeric(factor(df$activities, levels = c('yes', 'no'), labels = c(1, 2)))
+
+df1$nursery <- as.numeric(factor(df$nursery, levels = c('yes', 'no'), labels = c(1, 2)))
+df1$higher <- as.numeric(factor(df$higher, levels = c('yes', 'no'), labels = c(1, 2)))
+df1$internet <- as.numeric(factor(df$internet, levels = c('yes', 'no'), labels = c(1, 2)))
+df1$romantic <- as.numeric(factor(df$romantic, levels = c('yes', 'no'), labels = c(1, 2)))
+
+c <- df
+df <- df1
+df1 <- c
+```
+
+# Analiza ocen końcowych
+
+W naszym projekcie badamy dane uczniów, aby dowiedzieć się, co najbardziej wpływa na ich końcowe oceny, które nazywamy **G3**. Chcemy spojrzeć szerzej niż tylko na oceny cząstkowe, które już mają, czyli **G1** i **G2**. Naszym celem jest zrozumienie innych ważnych rzeczy, które mogą wpłynąć na ich wyniki w nauce.
+
+Do tego zadania wybraliśmy trzy różne sposoby analizy danych:
+
+1.  *regresję liniową,*
+
+2.  *RandomForest,*
+
+3.  *Gradient Boosting,*
+
+Każda z tych metod pozwala nam na spojrzenie na dane w inny sposób, co pomaga lepiej zrozumieć, jak różne rzeczy wpływają na oceny uczniów.
+
+Postanowiłyśmy podzielić dostępne informacje na dwa różne zestawy: zbiór uczący i zbiór testowy. Zbiór uczący stanowi *80%* całych danych. To właśnie na tym zbiorze *'uczymy'* nasze modele, aby rozpoznały wzorce i zależności. Pozostałe *20%* danych to zbiór testowy. Używamy go, żeby sprawdzić, jak dobrze nasze modele działają na nowych, nieznanych im wcześniej danych. Dzięki temu sprawdzamy, czy nasze wnioski są prawidłowe i czy modele dobrze przewidują wyniki uczniów.
+
+```{r}
+library(fastDummies)
+library(modelr)
+library(caret)
+
+
+
+# Wybór zmiennej zależnej - przewidujemy ocenę G3
+X <- df[, !(names(df) %in% c('G3', 'G2', 'G1'))]
+y <- df$G3
+
+# Podział danych na zestawy treningowe i testowe
+set.seed(42)
+partition <- createDataPartition(y, p = 0.8, list = FALSE)
+X_train <- X[partition, ]
+X_test <- X[-partition, ]
+y_train <- y[partition]
+y_test <- y[-partition]
+
+```
+
+## Model Regresji liniowej
+
+Regresja liniowa to prosta, ale potężna metoda statystyczna używana w naszym projekcie do analizy wpływu różnych czynników na końcowe oceny uczniów (**G3**). Polega ona na znalezieniu linii, która najlepiej przedstawia zależności między tymi czynnikami a ocenami, co pomaga przewidzieć, jak różne aspekty wpływają na wyniki edukacyjne ucznia.
+
+```{r}
+library(Metrics)
+
+train_data <- cbind(X_train, y_train = y_train)
+
+lin_reg <- lm(y_train ~ ., data = train_data, contrasts = list(your_factor_var = "contr.treatment"))
+
+y_pred <- predict(lin_reg, newdata = X_test)
+
+a1 <- r2 <- cor(y_test, y_pred)^2
+a2 <- mse <- mean((y_test - y_pred)^2)
+a3 <- mae <- MAE(y_test, y_pred)
+a4 <- cv_rmse <- RMSE(y_test, y_pred)
+```
+
+```{r}
+tab1 <- data.frame(a1, a2, a3, a4)
+colnames(tab1) <- c("R_2", "MSE", "MAE", "RMSE")
+
+tab1$R_2 = cell_spec(
+  tab1$R_2, color = "#58174D", align = "c", background = "#8af29e")
+
+tab1$MSE = cell_spec(
+  tab1$MSE, color = "#58174D", align = "c", background = "#B3EDD9")
+
+tab1$MAE = cell_spec(
+  tab1$MAE, color = "#58174D", align = "c", background = "#BDD7F2")
+
+tab1$RMSE = cell_spec(
+  tab1$RMSE, color = "#58174D", align = "c", background = "#aa96fa")
+
+kbl(tab1, escape = FALSE, col.names = c("R^2", "MSE", "MAE", "RMSE")) %>%
+  kable_paper("hover", full_width = FALSE) %>%
+  row_spec(0, angle = -5, color = "#58174D")
+```
+
+-   **R\^2** (0.1533): Współczynnik determinacji, R\^2, jest stosunkowo niski. Wartość 0.1533 oznacza, że model wyjaśnia tylko około 15.33% zmienności zmiennej zależnej (ocen końcowych). To wskazuje na to, że model nie jest bardzo dokładny w przewidywaniu ocen końcowych na podstawie dostępnych zmiennych.
+
+-   **MSE** (12.6454): Błąd średniokwadratowy (MSE) jest miarą jakości modelu, niższe wartości są lepsze. Wartość 12.6454 jest dość wysoka, co sugeruje, że przewidywania modelu są średnio o około 12.65 punktów różne od rzeczywistych wartości.
+
+-   **MAE** (2.5042): Średni błąd bezwzględny (MAE) jest inną miarą błędu, która jest bardziej odporna na skrajne wartości niż MSE. Wartość 2.5042 wskazuje, że średni błąd w przewidywaniach modelu wynosi około 2.5 punktu.
+
+-   **RMSE** (3.5560): Średni RMSE (Root Mean Square Error) z walidacji krzyżowej wynosi 3.5560, co wskazuje na to, że standardowe odchylenie błędów predykcji modelu wynosi około 3.56 punktów.
+
+```{r}
+coefficients <- coef(lin_reg)
+coefficients_df <- data.frame(Variable = names(coefficients), Coefficient = coefficients)
+coefficients_df <- coefficients_df[order(abs(coefficients_df$Coefficient), decreasing = TRUE), ]
+coefficients_df1 <- coefficients_df[c(-1,-31),]
+rownames(coefficients_df1) <- NULL
+colnames(coefficients_df1) <- c("Variable", "Importance")
+
+
+kbl(head(coefficients_df1, 10), escape = FALSE, col.names = c("Variable", "Importance")) %>%
+  kable_paper(full_width = FALSE) %>%
+  row_spec(0, angle = 0, color = "#58174D") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE, fixed_thead = TRUE) %>%
+  add_header_above(c("Top 10 najważniejszych cech" = 2), font_size = 23,color = "#58174D", bold = TRUE)
+```
+
+## Modelu Lasu Losowego
+
+Jest to zaawansowana metoda, która tworzy wiele drzew decyzyjnych, aby uzyskać dokładniejsze i bardziej wiarygodne przewidywania niż przy użyciu pojedynczego drzewa. Ta technika jest bardzo skuteczna w wykrywaniu skomplikowanych wzorców w danych, co jest kluczowe do zrozumienia złożonych zależności wpływających na wyniki edukacyjne.
+
+```{r}
+library(randomForest)
+
+set.seed(88) 
+
+rf_reg <- randomForest(x = X_train, y = y_train, ntree = 500, mtry = sqrt(ncol(X_train)), importance = TRUE)
+
+y_pred_rf <- predict(rf_reg, newdata = X_test)
+
+b1 <- r2 <- cor(y_test, y_pred_rf)^2
+b2 <- mse <- mean((y_test - y_pred_rf)^2)
+b3 <- mae <- MAE(y_test, y_pred_rf)
+b4 <- cv_rmse <- RMSE(y_test, y_pred_rf)
+```
+
+```{r}
+tab1 <- data.frame(b1, b2, b3, b4)
+colnames(tab1) <- c("R_2", "MSE", "MAE", "RMSE")
+
+tab1$R_2 = cell_spec(
+  tab1$R_2, color = "#58174D", align = "c", background = "#8af29e")
+
+tab1$MSE = cell_spec(
+  tab1$MSE, color = "#58174D", align = "c", background = "#B3EDD9")
+
+tab1$MAE = cell_spec(
+  tab1$MAE, color = "#58174D", align = "c", background = "#BDD7F2")
+
+tab1$RMSE = cell_spec(
+  tab1$RMSE, color = "#58174D", align = "c", background = "#aa96fa")
+
+kbl(tab1, escape = FALSE, col.names = c("R^2", "MSE", "MAE", "RMSE")) %>%
+  kable_paper("hover", full_width = FALSE) %>%
+  row_spec(0, angle = -5, color = "#58174D")
+```
+
+-   **R\^2** (0.3621): Współczynnik determinacji, R\^2, jest wyższy niż w poprzednim modelu, osiągając wartość 0.3621. Oznacza to, że model wyjaśnia około 36.21% zmienności zmiennej zależnej (ocen końcowych). Jest to poprawa w stosunku do poprzedniego modelu, choć nadal pozostaje stosunkowo niski, sugerując, że inne zmienne mogą lepiej przewidywać oceny końcowe.
+
+-   **MSE** (9.8439): Błąd średniokwadratowy (MSE) jest niższy niż poprzednio, osiągając wartość 9.8439. Oznacza to, że średnia kwadratowa różnica między przewidywaniami modelu a rzeczywistymi wartościami zmniejszyła się, co wskazuje na poprawę dokładności modelu.
+
+-   **MAE** (2.2578): Średni błąd bezwzględny (MAE) spadł do 2.2578, co wskazuje na to, że średni błąd w przewidywaniach modelu jest mniejszy niż wcześniej. Jest to pozytywny znak, sugerujący, że model jest teraz dokładniejszy w swoich przewidywaniach.
+
+-   **RMSE** (3.1375): Średni RMSE (Root Mean Square Error) z walidacji krzyżowej wynosi teraz 3.1375, co jest niższe niż poprzednia wartość. Oznacza to, że standardowe odchylenie błędów predykcji modelu jest teraz mniejsze, co wskazuje na zwiększoną precyzję modelu.
+
+```{r}
+library(randomForest)
+
+feature_importances_rf_full <- rf_reg$importance
+feature_importances_df_full <- data.frame(
+    feature = names(X_train), 
+    importance = feature_importances_rf_full[,'%IncMSE']
+)
+feature_importances_df_full <- feature_importances_df_full[order(feature_importances_df_full$importance, decreasing = TRUE), ]
+feature_importances_df_full1 <- feature_importances_df_full[-1,]
+rownames(feature_importances_df_full1) <- NULL
+colnames(feature_importances_df_full1) <- c("Variable", "Importance")
+
+
+kbl(head(feature_importances_df_full1, 10), escape = FALSE, col.names = c("Variable", "Importance")) %>%
+  kable_paper(full_width = FALSE) %>%
+  row_spec(0, angle = 0, color = "#58174D") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE, fixed_thead = TRUE) %>%
+  add_header_above(c("Top 10 najważniejszych cech" = 2), font_size = 23,color = "#58174D", bold = TRUE)
+
+```
+
+## Model Gradient Boosting
+
+Gradient Boosting w naszym projekcie to technika, która buduje modele (zazwyczaj drzewa decyzyjne) jedno po drugim, przy czym każdy kolejny model koryguje błędy poprzedniego. Ta metoda jest szczególnie efektywna w wykrywaniu skomplikowanych wzorców w danych uczniów, co pomaga dokładnie zrozumieć, jak różne czynniki wpływają na ich końcowe oceny.
+
+```{r}
+library(gbm)
+
+set.seed(42)
+gb_reg <- gbm(formula = y_train ~ ., distribution = "gaussian", data = as.data.frame(X_train), n.trees = 100, interaction.depth = 3, shrinkage = 0.1, cv.folds = 5)
+
+best_trees <- gbm.perf(gb_reg, method = "cv", plot.it = FALSE)
+
+y_pred_gb <- predict(gb_reg, newdata = as.data.frame(X_test), n.trees = best_trees)
+
+c1 <- r2 <- cor(y_test, y_pred_gb)^2
+c2 <- mse <- mean((y_test - y_pred_gb)^2)
+c3 <- mae <- MAE(y_test, y_pred_gb)
+c4 <- cv_rmse <- RMSE(y_test, y_pred_gb)
+```
+
+```{r}
+tab1 <- data.frame(c1, c2, c3, c4)
+colnames(tab1) <- c("R_2", "MSE", "MAE", "RMSE")
+
+tab1$R_2 = cell_spec(
+  tab1$R_2, color = "#58174D", align = "c", background = "#8af29e")
+
+tab1$MSE = cell_spec(
+  tab1$MSE, color = "#58174D", align = "c", background = "#B3EDD9")
+
+tab1$MAE = cell_spec(
+  tab1$MAE, color = "#58174D", align = "c", background = "#BDD7F2")
+
+tab1$RMSE = cell_spec(
+  tab1$RMSE, color = "#58174D", align = "c", background = "#aa96fa")
+
+kbl(tab1, escape = FALSE, col.names = c("R^2", "MSE", "MAE", "RMSE")) %>%
+  kable_paper("hover", full_width = FALSE) %>%
+  row_spec(0, angle = -5, color = "#58174D")
+```
+
+-   **R\^2** (0.2755): Współczynnik determinacji, R\^2, wynosi 0.2755, co oznacza, że model wyjaśnia około 27.55% zmienności zmiennej zależnej. Jest to wartość wyższa niż w pierwszym modelu, ale niższa niż w drugim, co wskazuje na umiarkowaną zdolność modelu do przewidywania ocen końcowych na podstawie dostępnych zmiennych.
+
+-   **MSE** (10.6828): Błąd średniokwadratowy (MSE) ma wartość 10.6828, co wskazuje, że przewidywania modelu są średnio o około 10.68 punktów różne od rzeczywistych wartości. Jest to wynik lepszy niż w pierwszym modelu, ale gorszy niż w drugim, sugerując umiarkowaną dokładność modelu.
+
+-   **MAE** (2.3882): Średni błąd bezwzględny (MAE) wynosi 2.3882, co oznacza, że średni błąd w przewidywaniach modelu wynosi około 2.39 punktu. Ta wartość jest wyższa niż w drugim modelu, ale nadal lepsza niż w pierwszym, co wskazuje na umiarkowaną poprawę dokładności modelu w porównaniu z początkowym modelem.
+
+-   **RMSE** (3.2684): Średni RMSE (Root Mean Square Error) z walidacji krzyżowej wynosi 3.2684, co wskazuje, że standardowe odchylenie błędów predykcji modelu wynosi około 3.27 punktów. Jest to wynik lepszy niż w pierwszym modelu, ale gorszy niż w drugim, co sugeruje umiarkowaną precyzję modelu w porównaniu z poprzednimi modelami.
+
+```{r}
+library(gbm)
+
+
+feature_importances_gb <- summary(gb_reg, plotit = FALSE)
+feature_importances_gb1 <- feature_importances_gb[-1,]
+rownames(feature_importances_gb1) <- NULL
+colnames(feature_importances_gb1) <- c("Variable", "Importance")
+
+
+kbl(head(feature_importances_gb1, 10), escape = FALSE, col.names = c("Variable", "Importance")) %>%
+  kable_paper(full_width = FALSE) %>%
+  row_spec(0, angle = 0, color = "#58174D") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE, fixed_thead = TRUE) %>%
+  add_header_above(c("Top 10 najważniejszych cech" = 2), font_size = 23,color = "#58174D", bold = TRUE)
+
+
+```
+
+### Porównywanie modeli
+
+Przeanalizujmy teraz dostępne modele, aby ocenić, który z nich najlepiej sprawdza się w naszym kontekście. Każdy model ma swoje unikalne cechy i metody przetwarzania danych, co sprawia, że mogą one różnie wpływać na dokładność i interpretowalność wyników. Przeprowadzimy więc szczegółowe porównanie, aby zidentyfikować ten, który najefektywniej odpowiada na nasze potrzeby badawcze.
+
+```{r}
+tabelka2 <- matrix(c("R^2", "MSE", "MAE", "RMSE", a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4), ncol=4, byrow=F)
+tabelka2 <- as.data.frame(tabelka2)
+colnames(tabelka2) <- c("współczynniki", "Model Regresji liniowej", "Modelu Lasu Losowego", "Model Gradient Boosting")
+```
+
+```{r}
+tabelka2.2 <- tabelka2 %>%
+  mutate(`współczynniki` = cell_spec(`współczynniki`, "html", background = ifelse(row_number() == 1, "#8af29e",
+                      ifelse(row_number() == 2, "#B3EDD9",
+                       ifelse(row_number() == 3, "#BDD7F2", "#aa96fa"))),
+                        color = "#58174D", align = "center"))
+
+# Tworzenie tabeli z kable
+kable(tabelka2.2, "html", escape = FALSE) %>%
+  kable_paper(full_width = FALSE) %>%
+  row_spec(0, angle = -3, color = "#58174D") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+```
+
+Najlepszym wyborem jest model Lasu Losowego. Posiada on najwyższy współczynnik R\^2, co wskazuje na najlepsze wyjaśnienie zmienności danych, oraz najniższe wartości MSE, MAE i RMSE, co wskazuje na najmniejszy błąd w przewidywaniach. Te wskaźniki łącznie sugerują, że model Lasu Losowego jest najbardziej dokładny spośród zaprezentowanych modeli.
+
+### Analiza Czynników Wpływających na Osiągnięcia Uczniów
+
+Przyjrzyjmy się bliżej zmiennym, które mają największy wpływ na oceny końcowe uczniów. Analiza ta pozwoli nam zrozumieć, które czynniki są najbardziej istotne w kontekście edukacyjnym. Poniższa tabela przedstawia dziesięć najważniejszych cech zidentyfikowanych przez każdy z modeli, pozwalając na bezpośrednie porównanie i wyciągnięcie wniosków na temat ich wzajemnego znaczenia.
+
+```{r}
+library(kableExtra)
+tabelka <- data.frame(coefficients_df1$Variable, feature_importances_df_full1$Variable, feature_importances_gb1$Variable)
+
+kbl(head(tabelka, 10), escape = FALSE, col.names = c("Regresja liniowa", "Las Losowy", "Gradient Boosting")) %>%
+  kable_paper(full_width = FALSE) %>%
+  row_spec(0, angle = 0, color = "#58174D") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE, fixed_thead = TRUE) %>%
+  add_header_above(c("Top 10 najważniejszych cech" = 3), font_size = 23,color = "#58174D", bold = TRUE)
+
+```
+
+**Wspólne Cechy Wskazywane przez Modele:**
+
+-   Zmienna Cours jest obecna we wszystkich trzech tabelach, co wskazuje na jej znaczący wpływ na ocenę końcową, niezależnie od użytego modelu. Jednakże warto zwrócić uwagę, że wpływ ten jest interpretowany różnie: w regresji liniowej ma ona ujemny współczynnik, co sugeruje, że pewne kursy mogą być związane z niższymi ocenami.
+
+-   schoolsup (dodatkowe wsparcie edukacyjne) i higher (aspiracje do wyższego wykształcenia) również pojawiają się w więcej niż jednej tabeli, co wskazuje na ich znaczenie w kontekście edukacyjnym.
+
+**Różnice między Modelami:**
+
+-   W modelu regresji liniowej failures (liczba niepowodzeń) ma duży ujemny wpływ, co jest logiczne, ponieważ uczniowie z większą liczbą niepowodzeń mogą mieć gorsze oceny końcowe. Ta cecha nie pojawia się jednak w pierwszej dziesiątce w pozostałych modelach.
+
+-   absences (nieobecności) są bardzo istotne w modelach Random Forest i Gradient Boosting, ale nie pojawiają się wśród dziesięciu najważniejszych zmiennych w regresji liniowej. Może to sugerować, że nieobecności mają nieliniowy wpływ na oceny.
+
+**Znaczenie Społeczno-Edukacyjne:**
+
+-   Medu (wykształcenie matki) i Fedu (wykształcenie ojca) są wymienione jako istotne w modelu Random Forest, co może wskazywać na rolę rodzinnego tła edukacyjnego w osiągnięciach uczniów.
+
+- Ciekawe jest, że romantic (bycie w związku romantycznym) jest istotne w regresji liniowej. To może wskazywać na to, że relacje romantyczne mają wpływ na wyniki akademickie, choć ten wpływ może być złożony i zależeć od wielu czynników. Różne Interpretacje Cech:
